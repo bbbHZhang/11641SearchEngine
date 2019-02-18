@@ -1,0 +1,7 @@
+indexPath=C:\Users\Han\Desktop\11641-Search Engine\Project1\index-gov2
+queryFilePath=C:\Users\Han\eclipse-workspace\11641SearchEngine\QryEval\queries.txt
+trecEvalOutputPath=C:\Users\Han\eclipse-workspace\11641SearchEngine\HW1-And-Ranked-queries.teIn
+trecEvalOutputLength=100
+retrievalAlgorithm=Indri
+Indri:mu=2500
+Indri:lambda=0.4
