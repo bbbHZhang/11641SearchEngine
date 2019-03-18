@@ -1,0 +1,3 @@
+704: #wand (0.0007 government 0.0008 alaska 0.0009 republican 0.0009 voter 0.0009 state 0.0009 group 0.0009 candidate 0.0014 election 0.0040 politics 0.0068 party )
+705: #wand (0.0004 burden 0.0005 bush 0.0005 secretary 0.0005 international 0.0005 jec 0.0006 baker 0.0006 economic 0.0006 imf 0.0015 debt 0.0025 iraq )
+706: #wand (0.0016 page 0.0018 insulin 0.0018 word 0.0019 type 0.0020 program 0.0028 utah 0.0028 control 0.0031 mellitu 0.0031 http 0.0139 diabetes )

@@ -78,12 +78,12 @@ public class QryParser {
    */
   private static Qry createOperator (String operatorName) {
     int tmp = 1;
-    if(operatorName.matches("#NEAR/[0-9]+")){
+    if(operatorName.toLowerCase().matches("#near/[0-9]+")){
       tmp = Integer.valueOf(operatorName.substring(operatorName.indexOf("/")+1, operatorName.length()));
       operatorName = String.copyValueOf(operatorName.toCharArray(),0, operatorName.indexOf("/"));
       System.out.println(operatorName + " " + tmp);
     }
-    if(operatorName.matches("#WINDOW/[0-9]+")){
+    if(operatorName.toLowerCase().matches("#window/[0-9]+")){
       tmp = Integer.valueOf(operatorName.substring(operatorName.indexOf("/")+1, operatorName.length()));
       operatorName = String.copyValueOf(operatorName.toCharArray(),0, operatorName.indexOf("/"));
       System.out.println(operatorName + " " + tmp);
@@ -350,7 +350,7 @@ public class QryParser {
 //        }
 //      }
 
-      System.out.println("queryString " + queryString);
+//      System.out.println("queryString " + queryString);
       if (queryString.charAt(0) == '#') {	// Subquery
 	    p = popSubquery (queryString);
 	    qargs = new Qry[1];

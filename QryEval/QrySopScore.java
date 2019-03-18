@@ -102,11 +102,12 @@ public class QrySopScore extends QrySop {
       QryIop q = (QryIop)this.args.get(0);
 
       double ctf = q.getCtf();
-      double Pmle = 0.5;
-      if(ctf != 0){
-        double lengthc = Idx.getSumOfFieldLengths(q.field);
-        Pmle = ctf/lengthc;
+      double Pmle = 0.0;
+      double lengthc = Idx.getSumOfFieldLengths(q.field);
+      if(ctf == 0){
+        ctf = 0.5;
       }
+      Pmle = ctf/lengthc;
       double lengthdoc = Idx.getFieldLength(q.field, (int)docid);
       return (1-lambda)* mu * Pmle/(lengthdoc + mu) + lambda * Pmle;
     }

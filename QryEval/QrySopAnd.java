@@ -53,7 +53,7 @@ public class QrySopAnd extends QrySop {
 //        } else {
             double res = 1.0;
             int docid = this.docIteratorGetMatch();
-            double weight = 1/(double) this.args.size();
+            double weight = 1.0 /(double) this.args.size();
             for (Qry q : this.args) {
                 if(q.docIteratorHasMatch(r) && q.docIteratorGetMatch() == docid){
                     double score = Math.pow(((QrySop) q).getScore(r), weight);
