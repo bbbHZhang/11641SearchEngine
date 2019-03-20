@@ -24,6 +24,10 @@ public class QryEval {
   private static final String[] TEXT_FIELDS =
     { "body", "title", "url", "inlink" };
 
+  private static Map<Integer, ScoreList> scoreListMap = null;
+
+
+
 
   //  --------------- Methods ---------------------------------------
 
@@ -196,7 +200,6 @@ public class QryEval {
         if(!parameters.containsKey("fb") || parameters.get("fb").equals("false")){
           //use the query to retrieve documents
           r = processQuery(query, model);
-          r.sort();
         }else{
           //check all parameters for expansion
           if (!(parameters.containsKey("fbTerms") && parameters.containsKey("fbMu")
@@ -208,13 +211,15 @@ public class QryEval {
 
           if(parameters.containsKey("fbInitialRankingFile")){
             //read a document ranking in trec_eval input format from the fbInitialRankingFile;
-            Map<Integer, ScoreList> scoreListMap = readRankingListFile(parameters.get("fbInitialRankingFile"));
+            if(scoreListMap == null){
+                scoreListMap = readRankingListFile(parameters.get("fbInitialRankingFile"));
+            }
             r = scoreListMap.get(Integer.valueOf(qid));
           }else{
             //use the query to retrieve documents
             r = processQuery(query, model);
-            r.sort();
           }
+
           //  use the Indri query expansion algorithm (Lecture 11, slides #30-36) to produce an expanded query;
           //  write the expanded query to a file specified by the fbExpansionQueryFile= parameter (the format is below);
           //  create a combined query as #wand (w qoriginal + (1-w) qexpandedquery);
@@ -222,15 +227,17 @@ public class QryEval {
 
           //r is the sorted docid with scores
           String expandedQuery = expandQuery(r, parameters);
+
           System.out.println(qid + ": " + expandedQuery + "\n");
 
           bw.write(qid + ": " + expandedQuery + "\n");
 
           double fbOrigWeight = Double.valueOf(parameters.get("fbOrigWeight"));
-          if(query.trim().charAt(0) != '#') query = "#and( " + query +")";
-          String newQry = String.format("#wand (%f (%s) %f %s )", fbOrigWeight, query, 1-fbOrigWeight, expandedQuery);
+          if(query.trim().charAt(0) != '#') query = model.defaultQrySopName() + "(" + query +")";
+          String newQry = String.format("#wand (%f %s %f %s )", fbOrigWeight, query, 1-fbOrigWeight, expandedQuery);
           System.out.println(newQry);
           r = processQuery(newQry, model);
+
           bw.close();
         }
         //write the retrieval results to a file in trec_eval input format;
@@ -311,7 +318,6 @@ public class QryEval {
       for(int a = 0; a < docNum; a++){
         int docid = r.getDocid(a);
         if(documentList.contains(docid))continue;;
-        TermVector termVector = new TermVector(docid, "body");
         long tf = 0;
         double ptd = (tf + fbMu * mleList.get(term))/(Idx.getFieldLength("body", docid) + fbMu);
         double idf = Math.log(1/mleList.get(term));

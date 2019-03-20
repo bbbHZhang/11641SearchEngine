@@ -95,7 +95,6 @@ public class QrySopScore extends QrySop {
   }
   @Override
   public double getDefaultScore(RetrievalModel r, long docid) throws IOException {
-    //who will call this method?????????????????????//
     if(r instanceof RetrievalModelIndri){
       double lambda = ((RetrievalModelIndri) r).lambda;
       double mu = ((RetrievalModelIndri) r).mu;
