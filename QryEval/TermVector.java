@@ -2,12 +2,12 @@
  *  Copyright (c) 2019, Carnegie Mellon University.  All Rights Reserved.
  */
 
-import java.io.*;
-
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
+
+import java.io.IOException;
 
 /**
  *  An Indri DocVector-style interface for the Lucene termvector.
@@ -119,8 +119,8 @@ public class TermVector {
    *  @return the index of the stem in the stems vector, or -1 if it does not occur.
    */
   public int indexOfStem (String stem) {
-    
-    for (int s=1; s<this.stems.length; s++)
+    if(this.stems == null) return -1;
+    for (int s=1; s < this.stems.length; s++)
       if (stem.equals (this.stems [s]))
 	return s;
     

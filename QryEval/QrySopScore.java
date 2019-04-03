@@ -66,7 +66,6 @@ public class QrySopScore extends QrySop {
       double score = (double)curr.docIteratorGetMatchPosting().tf/
               (curr.docIteratorGetMatchPosting().tf + bm25.k_1*(
                       (1-bm25.b) + bm25.b * Idx.getFieldLength(curr.field, curr.docIteratorGetMatch())/avg_doclen));
-//      System.out.println(score);
       return RSJweight * score * (bm25.k_3 + 1)*qtf/(qtf + bm25.k_3);
     }
   }
@@ -135,7 +134,6 @@ public class QrySopScore extends QrySop {
    */
   public double getScoreUnrankedBoolean (RetrievalModel r) throws IOException {
     if (! this.docIteratorHasMatchCache()) {
-
       return 0.0;
     } else {
       return 1.0;
@@ -151,9 +149,10 @@ public class QrySopScore extends QrySop {
    *  @throws IOException Error accessing the Lucene index.
    */
   public void initialize (RetrievalModel r) throws IOException {
-
     Qry q = this.args.get (0);
     q.initialize (r);
   }
+
+
 
 }

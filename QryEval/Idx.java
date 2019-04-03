@@ -106,7 +106,8 @@ public class Idx {
     int df = Idx.INDEXREADER.docFreq (term);
 
     if (df == 0) {
-      throw new Exception ("External id " + externalId + " not found.");
+//      throw new Exception ("External id " + externalId + " not found.");
+      return -1;
     } else if (df > 1) {
       throw new Exception ("Multiple matches for external id " + externalId);
     }

@@ -55,14 +55,15 @@ public class QryEval {
     //args[0] is the file path
     Map<String, String> parameters = readParameterFile (args[0]);
 
-
     //  Open the index and initialize the retrieval model.
-    Idx.open (parameters.get ("indexPath"));
+    Idx.open (parameters.get("indexPath"));
     RetrievalModel model = initializeRetrievalModel (parameters);
 
     //  Perform experiments.
-    
-    processQueryFile(parameters, model);
+    if(!(model instanceof RetrievalModelLetor)){
+      processQueryFile(parameters, model);
+    }
+
 
     //  Clean up.
     
@@ -78,7 +79,7 @@ public class QryEval {
    *  @throws IOException Error accessing the Lucene index.
    */
   private static RetrievalModel initializeRetrievalModel (Map<String, String> parameters)
-    throws IOException {
+          throws Exception {
 
     RetrievalModel model = null;
     String modelString = parameters.get ("retrievalAlgorithm").toLowerCase();
@@ -90,9 +91,33 @@ public class QryEval {
     } else if (modelString.equals("indri")){
       model = new RetrievalModelIndri(Float.valueOf(parameters.get("Indri:mu")),
                                       Float.valueOf(parameters.get("Indri:lambda")));
-    } else if (modelString.equals("bm25")){
+    } else if (modelString.equals("bm25")) {
       model = new RetrievalModelBM25(Double.valueOf(parameters.get("BM25:k_1")),
               Double.valueOf(parameters.get("BM25:k_3")), Double.valueOf(parameters.get("BM25:b")));
+    } else if(modelString.equals("letor")){
+
+      /********************************************** HW4 *****************************************/
+      System.out.println("Starting Learn to Rank Training");
+      model = new RetrievalModelLetor(parameters);
+      Feature fv = new Feature((RetrievalModelLetor) model);
+      fv.getTrainFeatures((RetrievalModelLetor) model);
+      trainSVM((RetrievalModelLetor) model);
+      System.out.println("Train SVM Done");
+
+      RetrievalModel bm25Model = new RetrievalModelBM25(((RetrievalModelLetor) model).k_1,
+              ((RetrievalModelLetor) model).b, ((RetrievalModelLetor) model).k_3);
+
+      //model.testingFeatureVectorsFile
+      //model.testingDocumentScores
+
+      Map<Integer, Map<String, Integer>> relMap = processQueryFile(parameters, bm25Model);
+      fv.relMap = relMap;
+      Map<Integer,List<String>> docList = fv.getRegularFeatures((RetrievalModelLetor) model);
+      testSVM((RetrievalModelLetor) model);
+      System.out.println("SVM test completed");
+
+      readLetorScore((RetrievalModelLetor) model, docList, parameters);
+
     } else {
       throw new IllegalArgumentException
         ("Unknown retrieval model " + parameters.get("retrievalAlgorithm"));
@@ -100,6 +125,115 @@ public class QryEval {
       
     return model;
   }
+
+  private static void readLetorScore(RetrievalModelLetor model, Map<Integer, List<String>> docList, Map<String, String> parameters) {
+    //doclist <QueryID, external doc id list>
+    try {
+      //svmScores is the all socres of all documents
+      ArrayDeque<Double> svmScores = readScores(model.testingDocumentScores);
+      Iterator<Map.Entry<Integer, List<String>>> iter = docList.entrySet().iterator();
+      BufferedWriter output = new BufferedWriter(new FileWriter(model.trecEvalOutputPath));
+
+      while (iter.hasNext()) {
+        Map.Entry<Integer, List<String>> entry = iter.next();
+        List<String> docs = entry.getValue();
+        int len = docs.size();
+        ScoreList r = new ScoreList();
+        for (int i = 0; i < len; i++) {
+          if (!svmScores.isEmpty()) {
+            r.add(Idx.getInternalDocid(docs.get(i)), svmScores.pollFirst());
+          } else {
+            System.out.println("Empty");
+          }
+        }
+        if (r != null) {
+          r.sort();
+          printResults(entry.getKey()+"" , r, parameters, output);
+          System.out.println();
+        }
+      }
+
+      output.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+
+  }
+
+  private static ArrayDeque<Double> readScores(String testingDocumentScores) throws IOException {
+    BufferedReader input = null;
+    // List<Double> svmScores = new ArrayList<>();
+    ArrayDeque<Double> svmScores = new ArrayDeque<>();
+
+    try {
+      String docScore = null;
+
+      input = new BufferedReader(new FileReader(testingDocumentScores));
+
+      int count = 0;
+      while ((docScore = input.readLine()) != null) {
+        count++;
+        svmScores.offer(Double.parseDouble(docScore.trim()));
+      }
+    } catch (IOException ex) {
+      ex.printStackTrace();
+    } finally {
+      input.close();
+      return svmScores;
+    }
+
+  }
+
+  public static void trainSVM(RetrievalModelLetor model) throws Exception {
+    Process cmdProc = Runtime.getRuntime().exec(new String[] { model.svmRankLearnPath, "-c",
+            String.valueOf(model.svmRankParamC), model.trainingFeatureVecotosFile, model.svmRankModelFile });
+
+    // consume stdout and print it out for debugging purposes
+    BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(cmdProc.getInputStream()));
+    String line;
+    while ((line = stdoutReader.readLine()) != null) {
+      System.out.println(line);
+    }
+    // consume stderr and print it for debugging purposes
+    BufferedReader stderrReader = new BufferedReader(new InputStreamReader(cmdProc.getErrorStream()));
+    while ((line = stderrReader.readLine()) != null) {
+      System.out.println(line);
+    }
+
+    // get the return value from the executable. 0 means success, non-zero
+    // indicates a problem
+    int retValue = cmdProc.waitFor();
+    if (retValue != 0) {
+      throw new Exception("SVM Rank crashed.");
+    }
+  }
+
+  public static void testSVM(RetrievalModelLetor model) throws Exception {
+    Process cmdProc = Runtime.getRuntime().exec(new String[] { model.svmRankClassifyPath,
+            model.testingFeatureVectorsFile, model.svmRankModelFile, model.testingDocumentScores });
+    // consume stdout and print it out for debugging purposes
+    BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(cmdProc.getInputStream()));
+    String line;
+    while ((line = stdoutReader.readLine()) != null) {
+      System.out.println(line);
+    }
+    // consume stderr and print it for debugging purposes
+    BufferedReader stderrReader = new BufferedReader(new InputStreamReader(cmdProc.getErrorStream()));
+    while ((line = stderrReader.readLine()) != null) {
+      System.out.println(line);
+    }
+
+    // get the return value from the executable. 0 means success, non-zero
+    // indicates a problem
+    int retValue = cmdProc.waitFor();
+    if (retValue != 0) {
+      throw new Exception("SVM Rank crashed.");
+    }
+  }
+
 
   /**
    * Print a message indicating the amount of memory used. The caller can
@@ -166,11 +300,12 @@ public class QryEval {
    *  @param model
    *  @throws IOException Error accessing the Lucene index.
    */
-  static void processQueryFile(Map<String, String> parameters, RetrievalModel model) throws IOException {
+  static Map<Integer, Map<String, Integer>> processQueryFile(Map<String, String> parameters, RetrievalModel model) throws IOException {
 
     BufferedReader input = null;
     BufferedWriter writer = null;
-//    BufferedWriter bw = null;
+
+    Map<Integer, Map<String, Integer>> relMap = new TreeMap<>();
 
     try {
       String qLine = null;
@@ -207,6 +342,7 @@ public class QryEval {
                   && parameters.containsKey("fbExpansionQueryFile"))) {
             throw new IllegalArgumentException("Required parameters were missing from the parameter file.");
           }
+
           BufferedWriter bw = new BufferedWriter(new FileWriter(parameters.get("fbExpansionQueryFile"), true));
 
           if(parameters.containsKey("fbInitialRankingFile")){
@@ -243,6 +379,19 @@ public class QryEval {
         //write the retrieval results to a file in trec_eval input format;
         /*********************************** Homework3 Expand Queries End *******************************************/
 
+        Map<String, Integer> topDocs = new HashMap<String, Integer>();
+
+        if (r != null) {
+          int result_range = Math.min(100, r.size());
+          if (r.size() < 1) {
+            System.out.println("\tNo results.");
+          } else {
+            for (int i = 0; i < result_range; i++) {
+              topDocs.put(Idx.getExternalDocid(r.getDocid(i)), 0);
+            }
+          }
+        }
+        relMap.putIfAbsent(Integer.parseInt(qid), topDocs);
 
         if (r != null) {
           printResults(qid, r, parameters, writer);
@@ -255,8 +404,7 @@ public class QryEval {
     } finally {
       input.close();
       writer.close();
-//      bw.close();
-
+      return relMap;
     }
   }
 
@@ -415,11 +563,14 @@ public class QryEval {
       writer.write(out0);
     } else {
       String ForR = (parameters.containsKey("fb") && parameters.get("fb").equals("true"))? "reference": "fubar";
+      if(parameters.get("retrievalAlgorithm").equals("letor")){
+        ForR = "yubinletor";
+      }
 
-      for (int i = 0; i < Math.min(result.size(), Integer.parseInt(parameters.get("trecEvalOutputLength"))); i++) {//?????????????????????????
+      for (int i = 0; i < Math.min(result.size(), Integer.parseInt(parameters.get("trecEvalOutputLength"))); i++) {
         String out = String.format("%s Q0 %s %d %.15f %s%n", queryName, Idx.getExternalDocid(result.getDocid(i)), i + 1, result.getDocidScore(i), ForR);
-//        System.out.print(out);
         writer.write(out);
+//        System.out.print(out);
       }
       //706 Q0 GX004-64-16738159 1 5.000000000000000000 fubar
     }
